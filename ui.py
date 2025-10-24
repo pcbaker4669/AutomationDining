@@ -67,9 +67,12 @@ class App:
         t_active = self.font_small.render(f"Active: {active}", True, WHITE)
         self.screen.blit(t_active, (PANEL_W + 280, 68))
 
+        # Draw a faint idle circle
+        pygame.draw.circle(self.screen, GREY, self.sim.idle_center, self.sim.idle_radius, width=1)
+
         # draw clients (little squares) marching toward the restaurant
         for c in self.sim.clients:
-            pygame.draw.rect(self.screen, WHITE, c.rect, border_radius=2)
+            pygame.draw.rect(self.screen, c.color(), c.rect, border_radius=2)
 
         if self.sim.visible:
             pygame.draw.rect(self.screen, WHITE, self.sim.square_pos, border_radius=8)

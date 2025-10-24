@@ -25,5 +25,14 @@ CLIENT_SPAWN_Y_JITTER = 40        # +/- vertical jitter around midline
 # Economics
 PRICE_PER_CLIENT = 5.00 # $ collected per served client
 
-# ABM population
-INITIAL_CLIENTS = 25  # number of clients present at start
+
+# ABM population + behavior
+INITIAL_CLIENTS = 25     # number of clients present at start
+HUNGER_PROB = 0.25       # per-blink probability an idle client becomes hungry
+CIRCLE_RADIUS = 140      # radius (px) of idle area to the left of the restaurant
+
+# Shift the whole simulation scene horizontally (fraction of sim panel width)
+# Negative = shift left, Positive = shift right. Ex: -0.25 = move left by 25%.
+SCENE_SHIFT_X = 0.25
+
+IDLE_GAP = 100  # extra horizontal space between the restaurant and the circle
