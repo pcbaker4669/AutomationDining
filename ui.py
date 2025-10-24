@@ -63,6 +63,10 @@ class App:
         self.screen.blit(t3, (PANEL_W + 20, 68))
         self.screen.blit(t4, (PANEL_W + 160, 68))
 
+        active = len(self.sim.clients)
+        t_active = self.font_small.render(f"Active: {active}", True, WHITE)
+        self.screen.blit(t_active, (PANEL_W + 280, 68))
+
         # draw clients (little squares) marching toward the restaurant
         for c in self.sim.clients:
             pygame.draw.rect(self.screen, WHITE, c.rect, border_radius=2)

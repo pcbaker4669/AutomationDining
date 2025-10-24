@@ -2,7 +2,7 @@ import pygame
 import random
 import math
 from config import (W, H, PANEL_W, BLINK_PERIOD, CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X,
-                    CLIENT_SPAWN_Y_JITTER, PRICE_PER_CLIENT,)
+                    CLIENT_SPAWN_Y_JITTER, PRICE_PER_CLIENT, INITIAL_CLIENTS)
 
 class Client:
     def __init__(self, x, y):
@@ -53,9 +53,21 @@ class Sim:
         # clear client list
         self.clients = []
 
+        # seed a fixed population
+        self.seed_clients(INITIAL_CLIENTS)
+
     def spawn_client(self):
         cy = H // 2 + random.randint(-CLIENT_SPAWN_Y_JITTER, CLIENT_SPAWN_Y_JITTER)
         self.clients.append(Client(CLIENT_SPAWN_X, cy))
+
+    def seed_clients(self, n):
+        """Create n clients along the left edge (small stagger to reduce overlap)."""
+        self.clients = []
+        midy = H // 2
+        for i in range(n):
+            y = midy + random.randint(-CLIENT_SPAWN_Y_JITTER, CLIENT_SPAWN_Y_JITTER)
+            x = CLIENT_SPAWN_X - (i % 5)  # tiny x-stagger so they’re not identical
+            self.clients.append(Client(x, y))
 
     def start(self):
         self.running = True
@@ -69,13 +81,6 @@ class Sim:
             return
         self.elapsed += dt
         self._blink_accum += dt
-        if self._blink_accum >= BLINK_PERIOD:
-            # self.visible = not self.visible
-            self._blink_accum = 0.0
-            self.blinks += 1
-
-            # spawn one client on every blink (toggle)
-            self.spawn_client()
 
         # move clients each frame (running only)
         self.update_clients(dt)

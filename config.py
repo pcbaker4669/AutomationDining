@@ -24,3 +24,6 @@ CLIENT_SPAWN_Y_JITTER = 40        # +/- vertical jitter around midline
 
 # Economics
 PRICE_PER_CLIENT = 5.00 # $ collected per served client
+
+# ABM population
+INITIAL_CLIENTS = 25  # number of clients present at start
