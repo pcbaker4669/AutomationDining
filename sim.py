@@ -5,7 +5,8 @@ from config import (
     W, H, PANEL_W, BLINK_PERIOD,
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
     PRICE_PER_CLIENT, INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS,
-    IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, VALUE_OF_TIME_PER_MIN
+    IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, VALUE_OF_TIME_PER_MIN,
+    DWELL_MEAN_SEC, DWELL_SD_SEC,
 )
 
 class Client:
@@ -14,6 +15,7 @@ class Client:
         self.rect.center = (x, y)
         self.state = "idle"  # "idle" or "going"
         self.t_hungry = None  # simulation time when agent became hungry
+        self.dwell_remaining = 0.0  # seconds; when > 0, client is "dwell"
 
     def step_toward(self, dt, target_xy):
         # (leave your existing movement code as-is)
@@ -168,15 +170,29 @@ class Sim:
                 c.step_toward(dt, target)
                 if self.square_pos.colliderect(c.rect):
                     served_now += 1
-                    # compute time from hungry -> served (minutes)
+                    # start dwell instead of teleporting immediately
+                    # sample a positive dwell time ~ Normal(mean, sd), clamped to at least 5s
+                    dwell = max(2.0, random.gauss(DWELL_MEAN_SEC, DWELL_SD_SEC))
+                    c.dwell_remaining = dwell
+                    c.state = "dwell"
+                    # NOTE: do NOT compute time cost yet; we now include dwell,
+                    # so we'll finalize the metric when dwell finishes.
+
+        # handle dwellers: count time from hungry->end-of-dwell, then return to idle circle
+        for c in self.clients:
+            if c.state == "dwell":
+                c.dwell_remaining -= dt
+                if c.dwell_remaining <= 0.0:
+                    # now we finalize time cost INCLUDING dwell
                     if c.t_hungry is not None:
                         delta_min = max(0.0, (self.elapsed - c.t_hungry) / 60.0)
                         self.time_spent_sum += delta_min
                         self.time_spent_n += 1
                         c.t_hungry = None
-                    # return to idle circle and become idle again
+                    # send back to idle pool
                     c.rect.center = self._random_point_in_circle(self.idle_center, self.idle_radius)
                     c.state = "idle"
+                    c.dwell_remaining = 0.0
 
         if served_now:
             self.customers_served += served_now

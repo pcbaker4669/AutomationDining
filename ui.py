@@ -49,9 +49,9 @@ class App:
 
         # ---- Status ticker ----
         elapsed = self.sim.elapsed_mmss()
-        blinks = self.sim.blinks
+        ticks = self.sim.blinks
         t1 = self.font_small.render(f"Elapsed: {elapsed}", True, WHITE)
-        t2 = self.font_small.render(f"Blinks: {blinks}", True, WHITE)
+        t2 = self.font_small.render(f"Ticks: {ticks}", True, WHITE)
         self.screen.blit(t1, (PANEL_W+160, 48))
         self.screen.blit(t2, (PANEL_W+300, 48))
 

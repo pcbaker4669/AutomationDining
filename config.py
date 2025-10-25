@@ -31,8 +31,8 @@ PRICE_PER_CLIENT = 5.00 # $ collected per served client
 
 
 # ABM population + behavior
-INITIAL_CLIENTS = 25     # number of clients present at start
-HUNGER_PROB = 0.25       # per-blink probability an idle client becomes hungry
+INITIAL_CLIENTS = 50     # number of clients present at start
+HUNGER_PROB = 0.1       # per-blink probability an idle client becomes hungry
 CIRCLE_RADIUS = 140      # radius (px) of idle area to the left of the restaurant
 
 # Shift the whole simulation scene horizontally (fraction of sim panel width)
@@ -43,3 +43,7 @@ IDLE_GAP = 100  # extra horizontal space between the restaurant and the circle
 
 # Opportunity cost (dollars per minute) for the consumers
 VALUE_OF_TIME_PER_MIN = 0.25  # = $15/hour
+
+# Eating (dwell) time after arrival (seconds)
+DWELL_MEAN_SEC = 5    # average time
+DWELL_SD_SEC   = 2     # +/- variation (clamped >= 5s)
