@@ -3,7 +3,7 @@ import pygame
 from config import (
     W, H, PANEL_W, FPS,
     BG, PANEL_BG, SIM_BG,
-    WHITE, GREY, GREEN, RED, YELLOW,
+    WHITE, GREY, GREEN, RED, YELLOW, SIM_SPEED
 )
 from widgets import Button
 from sim import Sim
@@ -81,6 +81,9 @@ class App:
         self.screen.blit(t_time, (PANEL_W + 20, 88))
         self.screen.blit(t_cost, (PANEL_W + 160, 88))
         self.screen.blit(t_gp, (PANEL_W + 300, 88))
+
+        speed_lbl = self.font_small.render("Speed: x{:.1f}".format(SIM_SPEED), True, WHITE)
+        self.screen.blit(speed_lbl, (PANEL_W + 420, 48))
 
         # Draw a faint idle circle
         # pygame.draw.circle(self.screen, GREY, self.sim.idle_center, self.sim.idle_radius, width=1)

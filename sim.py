@@ -6,7 +6,7 @@ from config import (
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
     PRICE_PER_CLIENT, INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS,
     IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, VALUE_OF_TIME_PER_MIN,
-    DWELL_MEAN_SEC, DWELL_SD_SEC,
+    DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED
 )
 
 class Client:
@@ -138,9 +138,9 @@ class Sim:
     def step(self, dt):
         if not self.running:
             return
-        self.elapsed += dt
-
-        self._blink_accum += dt
+        sdt = dt * SIM_SPEED  # <— scaled simulation time
+        self.elapsed += sdt  # (was dt)
+        self._blink_accum += sdt  # (was dt)
 
         if self._blink_accum >= BLINK_PERIOD:
             # self.visible = not self.visible
@@ -152,7 +152,7 @@ class Sim:
                     c.t_hungry = self.elapsed  # seconds since start
 
         # move clients
-        self.update_clients(dt)
+        self.update_clients(dt_move=dt, dt_time=sdt)
 
     def money_str(self):
         return f"${self.money_collected:,.2f}"
@@ -162,38 +162,38 @@ class Sim:
         s = int(self.elapsed % 60)
         return f"{m:02d}:{s:02d}"
 
-    def update_clients(self, dt):
+    def update_clients(self, dt_move, dt_time):
         target = self.square_pos.center
         served_now = 0
+
+        # 1) Move only "going" clients using UNscaled dt (visual speed constant)
         for c in self.clients:
             if c.state == "going":
-                c.step_toward(dt, target)
+                c.step_toward(dt_move, target)
                 if self.square_pos.colliderect(c.rect):
                     served_now += 1
-                    # start dwell instead of teleporting immediately
-                    # sample a positive dwell time ~ Normal(mean, sd), clamped to at least 5s
+                    # start dwell in seconds (already scaled in dt_time later)
                     dwell = max(2.0, random.gauss(DWELL_MEAN_SEC, DWELL_SD_SEC))
                     c.dwell_remaining = dwell
                     c.state = "dwell"
-                    # NOTE: do NOT compute time cost yet; we now include dwell,
-                    # so we'll finalize the metric when dwell finishes.
 
-        # handle dwellers: count time from hungry->end-of-dwell, then return to idle circle
+        # 2) Process dwell using SCALED time so dwell finishes faster when SIM_SPEED>1
         for c in self.clients:
             if c.state == "dwell":
-                c.dwell_remaining -= dt
+                c.dwell_remaining -= dt_time
                 if c.dwell_remaining <= 0.0:
-                    # now we finalize time cost INCLUDING dwell
+                    # finalize time cost (uses self.elapsed, already scaled)
                     if c.t_hungry is not None:
                         delta_min = max(0.0, (self.elapsed - c.t_hungry) / 60.0)
                         self.time_spent_sum += delta_min
                         self.time_spent_n += 1
                         c.t_hungry = None
-                    # send back to idle pool
+                    # return to idle pool
                     c.rect.center = self._random_point_in_circle(self.idle_center, self.idle_radius)
                     c.state = "idle"
                     c.dwell_remaining = 0.0
 
+        # money/served increments — keep wherever you increment them now (arrival or dwell-finish)
         if served_now:
             self.customers_served += served_now
             self.money_collected += PRICE_PER_CLIENT * served_now
