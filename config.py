@@ -16,6 +16,10 @@ GREEN = (90, 200, 120)
 RED = (220, 90, 90)
 YELLOW = (230, 200, 80)
 
+HUNGRY_COLOR = (255, 170, 0)   # amber for hungry/going
+IDLE_COLOR   = (100, 160, 240) # blue for idle
+
+
 # Clients (little squares that march to the restaurant)
 CLIENT_SIZE = 12          # pixels
 CLIENT_SPEED = 120.0      # pixels/second
@@ -36,3 +40,6 @@ CIRCLE_RADIUS = 140      # radius (px) of idle area to the left of the restauran
 SCENE_SHIFT_X = 0.25
 
 IDLE_GAP = 100  # extra horizontal space between the restaurant and the circle
+
+# Opportunity cost (dollars per minute) for the consumers
+VALUE_OF_TIME_PER_MIN = 0.25  # = $15/hour

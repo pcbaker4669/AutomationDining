@@ -4,8 +4,8 @@ import math
 from config import (
     W, H, PANEL_W, BLINK_PERIOD,
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
-    PRICE_PER_CLIENT,
-    INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS, IDLE_GAP
+    PRICE_PER_CLIENT, INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS,
+    IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, VALUE_OF_TIME_PER_MIN
 )
 
 class Client:
@@ -13,6 +13,7 @@ class Client:
         self.rect = pygame.Rect(0, 0, CLIENT_SIZE, CLIENT_SIZE)
         self.rect.center = (x, y)
         self.state = "idle"  # "idle" or "going"
+        self.t_hungry = None  # simulation time when agent became hungry
 
     def step_toward(self, dt, target_xy):
         # (leave your existing movement code as-is)
@@ -31,7 +32,7 @@ class Client:
 
     def color(self):
         # idle = bluish; going = white
-        return (100, 160, 240) if self.state == "idle" else (235, 235, 235)
+        return IDLE_COLOR if self.state == "idle" else HUNGRY_COLOR
 
 class Sim:
     """Minimal simulation state: run/stop/reset + blinking square."""
@@ -68,7 +69,18 @@ class Sim:
         center_x = max(PANEL_W + self.idle_radius + 4, center_x)
         return (center_x, cy)
 
+    def avg_time_spent_min(self):
+        if self.time_spent_n == 0:
+            return 0.0
+        return self.time_spent_sum / self.time_spent_n
 
+    def avg_time_cost_dollars(self):
+        return self.avg_time_spent_min() * VALUE_OF_TIME_PER_MIN
+
+    def avg_gp_dollars(self):
+        # generalized price = money price + time cost
+        # (uses your global PRICE_PER_CLIENT)
+        return PRICE_PER_CLIENT + self.avg_time_cost_dollars()
 
     def seed_clients(self, n):
         self.clients = []
@@ -89,6 +101,10 @@ class Sim:
         # metrics
         self.customers_served = 0
         self.money_collected = 0.0
+
+        # time-cost metrics (hungry -> served)
+        self.time_spent_sum = 0.0  # minutes
+        self.time_spent_n = 0
 
         # Idle circle geometry
         self.idle_radius = CIRCLE_RADIUS
@@ -131,6 +147,7 @@ class Sim:
             for c in self.clients:
                 if c.state == "idle" and random.random() < HUNGER_PROB:
                     c.state = "going"
+                    c.t_hungry = self.elapsed  # seconds since start
 
         # move clients
         self.update_clients(dt)
@@ -151,6 +168,12 @@ class Sim:
                 c.step_toward(dt, target)
                 if self.square_pos.colliderect(c.rect):
                     served_now += 1
+                    # compute time from hungry -> served (minutes)
+                    if c.t_hungry is not None:
+                        delta_min = max(0.0, (self.elapsed - c.t_hungry) / 60.0)
+                        self.time_spent_sum += delta_min
+                        self.time_spent_n += 1
+                        c.t_hungry = None
                     # return to idle circle and become idle again
                     c.rect.center = self._random_point_in_circle(self.idle_center, self.idle_radius)
                     c.state = "idle"

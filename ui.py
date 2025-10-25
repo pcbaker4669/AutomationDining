@@ -53,7 +53,7 @@ class App:
         t1 = self.font_small.render(f"Elapsed: {elapsed}", True, WHITE)
         t2 = self.font_small.render(f"Blinks: {blinks}", True, WHITE)
         self.screen.blit(t1, (PANEL_W+160, 48))
-        self.screen.blit(t2, (PANEL_W+280, 48))
+        self.screen.blit(t2, (PANEL_W+300, 48))
 
         # metrics line directly below status line (served and money)
         served = self.sim.customers_served
@@ -65,10 +65,25 @@ class App:
 
         active = len(self.sim.clients)
         t_active = self.font_small.render(f"Active: {active}", True, WHITE)
-        self.screen.blit(t_active, (PANEL_W + 280, 68))
+        self.screen.blit(t_active, (PANEL_W + 300, 68))
+
+        # Time cost HUD (opportunity cost)
+        avg_min = self.sim.avg_time_spent_min()
+        avg_tc = self.sim.avg_time_cost_dollars()
+        avg_gp = self.sim.avg_gp_dollars()
+
+        # ATS - Average Time Spent, ATC - Average Time Cost, AGP - Average Global Price (Price+Time)
+        t_time = self.font_small.render(f"ATS: {avg_min:.2f} min", True, WHITE)
+        t_cost = self.font_small.render(f"ATC: ${avg_tc:.2f}", True, WHITE)
+        t_gp = self.font_small.render(f"AGP: ${avg_gp:.2f}", True, WHITE)
+
+        # place these a bit lower than your existing metrics; adjust Y offsets if needed
+        self.screen.blit(t_time, (PANEL_W + 20, 88))
+        self.screen.blit(t_cost, (PANEL_W + 160, 88))
+        self.screen.blit(t_gp, (PANEL_W + 300, 88))
 
         # Draw a faint idle circle
-        pygame.draw.circle(self.screen, GREY, self.sim.idle_center, self.sim.idle_radius, width=1)
+        # pygame.draw.circle(self.screen, GREY, self.sim.idle_center, self.sim.idle_radius, width=1)
 
         # draw clients (little squares) marching toward the restaurant
         for c in self.sim.clients:
