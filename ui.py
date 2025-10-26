@@ -85,6 +85,34 @@ class App:
         speed_lbl = self.font_small.render("Speed: x{:.1f}".format(SIM_SPEED), True, WHITE)
         self.screen.blit(speed_lbl, (PANEL_W + 420, 48))
 
+        m = self.sim.demand_multiplier()
+        t_wave = self.font_small.render(f"Demand x{m:.2f}", True, WHITE)
+        self.screen.blit(t_wave, (PANEL_W + 420, 68))
+
+        # --- crowd thresholds hint under the restaurant ---
+        y, r = self.sim._crowd_thresholds()
+        hint_text = f"Y={y}  R={r}"
+
+        # render text
+        hint_surf = self.font_small.render(hint_text, True, WHITE)
+        hint_rect = hint_surf.get_rect()
+        # center under the restaurant, with a little gap
+        rect = self.sim.square_pos
+        hint_rect.midtop = (rect.centerx, rect.bottom + 6)
+
+        # keep it on-screen if near the bottom
+        if hint_rect.bottom > H - 4:
+            hint_rect.bottom = H - 4
+
+        # (optional) subtle background for readability
+        bg = pygame.Rect(hint_rect).inflate(8, 4)
+        pygame.draw.rect(self.screen, (0, 0, 0, 0), bg, border_radius=6)  # if alpha not supported, use (20,20,20)
+        pygame.draw.rect(self.screen, (20, 20, 20), bg, border_radius=6)
+        # --- END crowd thresholds hint under the restaurant ---
+
+        # blit text
+        self.screen.blit(hint_surf, hint_rect)
+
         # Draw a faint idle circle
         # pygame.draw.circle(self.screen, GREY, self.sim.idle_center, self.sim.idle_radius, width=1)
 

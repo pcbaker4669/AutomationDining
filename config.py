@@ -32,7 +32,7 @@ PRICE_PER_CLIENT = 5.00 # $ collected per served client
 
 # ABM population + behavior
 INITIAL_CLIENTS = 75     # number of clients present at start
-HUNGER_PROB = 0.004       # per-blink probability an idle client becomes hungry
+HUNGER_PROB = 0.001       # per-blink probability an idle client becomes hungry
 CIRCLE_RADIUS = 140      # radius (px) of idle area to the left of the restaurant
 
 # Shift the whole simulation scene horizontally (fraction of sim panel width)
@@ -51,11 +51,23 @@ DWELL_SD_SEC   = 120     # +/- variation (clamped >= 5s)
 # Simulation speed (1.0 = real time). Increase to make the sim run faster than wall-clock.
 SIM_SPEED = 20.0
 
-# Crowding thresholds (number of diners inside the restaurant)
-CROWD_YELLOW = 6     # >=6 becomes yellow
-CROWD_RED    = 12    # >=12 becomes red
+# Crowding thresholds as fractions of the current client population
+CROWD_YELLOW_PCT = 0.15   # ~15% of agents inside => yellow
+CROWD_RED_PCT    = 0.30   # ~30% of agents inside => red
 
 # Restaurant fill colors by crowding
 REST_GREEN  = (80, 200, 120)
 REST_YELLOW = (230, 200, 80)
 REST_RED    = (220, 90, 90)
+
+# -------- Demand wave (simple, optional) --------
+DEMAND_WAVE_ON = True        # toggle the wave on/off
+DEMAND_PERIOD_SEC = 600.0    # one full cycle in simulated seconds (e.g., 10 min)
+DEMAND_PEAK = 1.3            # multiplier at peak (e.g., org 1.6x baseline)
+DEMAND_TROUGH = 0.2          # multiplier at trough (e.g., org 0.7x baseline)
+
+# Start phase so we begin off-peak (0..1 across the cycle).
+# For a cosine wave (max at phase 0), trough is at phase 0.5:
+DEMAND_START_PHASE = 0.5
+
+

@@ -6,8 +6,10 @@ from config import (
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
     PRICE_PER_CLIENT, INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS,
     IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, VALUE_OF_TIME_PER_MIN,
-    DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED, CROWD_YELLOW, CROWD_RED,
-    REST_GREEN, REST_YELLOW, REST_RED
+    DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED, CROWD_YELLOW_PCT, CROWD_RED_PCT,
+    REST_GREEN, REST_YELLOW, REST_RED, DEMAND_WAVE_ON, DEMAND_PERIOD_SEC,
+    DEMAND_PEAK, DEMAND_TROUGH, DEMAND_START_PHASE
+
 )
 
 class Client:
@@ -77,12 +79,19 @@ class Sim:
         return sum(1 for c in self.clients if getattr(c, "state", None) == "dwell")
 
     def restaurant_color(self):
-        n = self.diners_in_restaurant()
-        if n >= CROWD_RED:
+        load = self.diners_in_restaurant()
+        yellow, red = self._crowd_thresholds()
+        if load >= red:
             return REST_RED
-        if n >= CROWD_YELLOW:
+        if load >= yellow:
             return REST_YELLOW
         return REST_GREEN
+
+    def _crowd_thresholds(self):
+        n = max(1, len(self.clients))  # current population (agents recycle, so usually constant)
+        yellow = max(1, int(round(CROWD_YELLOW_PCT * n)))
+        red = max(yellow + 1, int(round(CROWD_RED_PCT * n)))  # ensure red > yellow
+        return yellow, red
 
     def avg_time_spent_min(self):
         if self.time_spent_n == 0:
@@ -159,10 +168,12 @@ class Sim:
             # self.visible = not self.visible
             self._blink_accum = 0.0
             self.blinks += 1
+            m = self.demand_multiplier()
+            p_eff = max(0.0, min(1.0, HUNGER_PROB * m))  # clamp for safety
             for c in self.clients:
-                if c.state == "idle" and random.random() < HUNGER_PROB:
+                if c.state == "idle" and random.random() < p_eff:
                     c.state = "going"
-                    c.t_hungry = self.elapsed  # seconds since start
+                    c.t_hungry = self.elapsed
 
         # move clients
         self.update_clients(dt_move=dt, dt_time=sdt)
@@ -210,3 +221,16 @@ class Sim:
         if served_now:
             self.customers_served += served_now
             self.money_collected += PRICE_PER_CLIENT * served_now
+
+    def demand_multiplier(self):
+        """Piecewise cosine between DEMAND_TROUGH and DEMAND_PEAK over DEMAND_PERIOD_SEC."""
+        if not DEMAND_WAVE_ON or DEMAND_PERIOD_SEC <= 0:
+            return 1.0
+        # cosine: 1 at phase 0; -1 at phase 0.5
+
+        mid = 0.5 * (DEMAND_PEAK + DEMAND_TROUGH)
+        amp = 0.5 * (DEMAND_PEAK - DEMAND_TROUGH)
+        # start phase shifts us to off-peak at t=0
+        t = (self.elapsed + DEMAND_START_PHASE * DEMAND_PERIOD_SEC) % DEMAND_PERIOD_SEC
+        phase = t / DEMAND_PERIOD_SEC
+        return mid + amp * math.cos(2 * math.pi * phase)
