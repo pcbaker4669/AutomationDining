@@ -50,3 +50,12 @@ DWELL_SD_SEC   = 120     # +/- variation (clamped >= 5s)
 
 # Simulation speed (1.0 = real time). Increase to make the sim run faster than wall-clock.
 SIM_SPEED = 20.0
+
+# Crowding thresholds (number of diners inside the restaurant)
+CROWD_YELLOW = 6     # >=6 becomes yellow
+CROWD_RED    = 12    # >=12 becomes red
+
+# Restaurant fill colors by crowding
+REST_GREEN  = (80, 200, 120)
+REST_YELLOW = (230, 200, 80)
+REST_RED    = (220, 90, 90)

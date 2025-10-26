@@ -6,7 +6,8 @@ from config import (
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
     PRICE_PER_CLIENT, INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS,
     IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, VALUE_OF_TIME_PER_MIN,
-    DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED
+    DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED, CROWD_YELLOW, CROWD_RED,
+    REST_GREEN, REST_YELLOW, REST_RED
 )
 
 class Client:
@@ -70,6 +71,18 @@ class Sim:
         # keep inside the sim panel
         center_x = max(PANEL_W + self.idle_radius + 4, center_x)
         return (center_x, cy)
+
+    def diners_in_restaurant(self) -> int:
+        # diners are those currently in dwell state (i.e., inside the square)
+        return sum(1 for c in self.clients if getattr(c, "state", None) == "dwell")
+
+    def restaurant_color(self):
+        n = self.diners_in_restaurant()
+        if n >= CROWD_RED:
+            return REST_RED
+        if n >= CROWD_YELLOW:
+            return REST_YELLOW
+        return REST_GREEN
 
     def avg_time_spent_min(self):
         if self.time_spent_n == 0:

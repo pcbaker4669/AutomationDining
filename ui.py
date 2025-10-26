@@ -92,8 +92,21 @@ class App:
         for c in self.sim.clients:
             pygame.draw.rect(self.screen, c.color(), c.rect, border_radius=2)
 
+        # restaurant square (color by crowding) + count overlay
+        rect = self.sim.square_pos
+        load = self.sim.diners_in_restaurant()
+        color = self.sim.restaurant_color()
+
         if self.sim.visible:
-            pygame.draw.rect(self.screen, WHITE, self.sim.square_pos, border_radius=8)
+            pygame.draw.rect(self.screen, color, rect, border_radius=8)
+        else:
+            # if you still use blinking, show outline when "invisible"
+            pygame.draw.rect(self.screen, GREY, rect, width=2, border_radius=8)
+
+        # number overlay, centered on the square
+        num_surf = self.font.render(str(load), True, WHITE)
+        num_rect = num_surf.get_rect(center=rect.center)
+        self.screen.blit(num_surf, num_rect)
 
     def handle_events(self):
         for event in pygame.event.get():
