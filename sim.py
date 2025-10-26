@@ -19,6 +19,7 @@ class Client:
         self.state = "idle"  # "idle" or "going"
         self.t_hungry = None  # simulation time when agent became hungry
         self.dwell_remaining = 0.0  # seconds; when > 0, client is "dwell"
+        self.return_target = None  # (x, y) point in the pool to walk back to
 
     def step_toward(self, dt, target_xy):
         # (leave your existing movement code as-is)
@@ -36,8 +37,11 @@ class Client:
             self.rect.center = (cx + ux * step, cy + uy * step)
 
     def color(self):
-        # idle = bluish; going = white
-        return IDLE_COLOR if self.state == "idle" else HUNGRY_COLOR
+        # returning uses the idle color
+        if self.state in ("idle", "returning"):
+            return IDLE_COLOR
+        # going or dwell = hungry/active color
+        return HUNGRY_COLOR
 
 class Sim:
     """Minimal simulation state: run/stop/reset + blinking square."""
@@ -213,9 +217,17 @@ class Sim:
                         self.time_spent_n += 1
                         c.t_hungry = None
                     # return to idle pool
-                    c.rect.center = self._random_point_in_circle(self.idle_center, self.idle_radius)
+                    c.return_target = self._random_point_in_circle(self.idle_center, self.idle_radius)
+                    c.state = "returning"
+
+        # 3. after handling "going"
+        for c in self.clients:
+            if c.state == "returning":
+                c.step_toward(dt_move, c.return_target)
+                # arrived?
+                if c.rect.center == c.return_target:
                     c.state = "idle"
-                    c.dwell_remaining = 0.0
+                    c.return_target = None
 
         # money/served increments — keep wherever you increment them now (arrival or dwell-finish)
         if served_now:
