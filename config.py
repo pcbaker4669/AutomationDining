@@ -3,7 +3,7 @@ W, H = 900, 520
 PANEL_W = 260 # left components panel width
 
 # Timing
-BLINK_PERIOD = 0.5 # seconds per toggle when running
+TICK_PERIOD = 0.5 # seconds per toggle when running
 FPS = 60
 
 # Colors (RGB)
@@ -70,4 +70,13 @@ DEMAND_TROUGH = 0.2          # multiplier at trough (e.g., org 0.7x baseline)
 # For a cosine wave (max at phase 0), trough is at phase 0.5:
 DEMAND_START_PHASE = 0.5
 
+# -------- Run cutoff --------
+# Stop the simulation after this much *simulated* time.
+MAX_SIM_MINUTES = 20        # e.g., 120 for 2 hours of sim time
+MAX_SIM_SECONDS = MAX_SIM_MINUTES * 60
 
+# --- Food quality (per visit), 0..1 scale ---
+QUALITY_MEAN = 0.70   # average quality
+QUALITY_SD   = 0.12   # visit-to-visit variation
+QUALITY_MIN  = 0.10   # hard floor
+QUALITY_MAX  = 1.00   # hard ceiling

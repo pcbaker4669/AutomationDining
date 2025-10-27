@@ -49,7 +49,7 @@ class App:
 
         # ---- Status ticker ----
         elapsed = self.sim.elapsed_mmss()
-        ticks = self.sim.blinks
+        ticks = self.sim.ticks
         t1 = self.font_small.render(f"Elapsed: {elapsed}", True, WHITE)
         t2 = self.font_small.render(f"Ticks: {ticks}", True, WHITE)
         self.screen.blit(t1, (PANEL_W+160, 48))
@@ -76,6 +76,11 @@ class App:
         t_time = self.font_small.render(f"ATS: {avg_min:.2f} min", True, WHITE)
         t_cost = self.font_small.render(f"ATC: ${avg_tc:.2f}", True, WHITE)
         t_gp = self.font_small.render(f"AGP: ${avg_gp:.2f}", True, WHITE)
+
+        # AQS - Average Quality Score
+        avg_q = self.sim.avg_quality()
+        t_q = self.font_small.render(f"Avg Quality: {avg_q:.2f}", True, WHITE)
+        self.screen.blit(t_q, (PANEL_W + 420, 88))  # adjust Y if needed
 
         # place these a bit lower than your existing metrics; adjust Y offsets if needed
         self.screen.blit(t_time, (PANEL_W + 20, 88))
@@ -135,6 +140,16 @@ class App:
         num_surf = self.font.render(str(load), True, WHITE)
         num_rect = num_surf.get_rect(center=rect.center)
         self.screen.blit(num_surf, num_rect)
+
+        # bottom-centered stop note
+        if getattr(self.sim, "stopped_reason", None):
+            note = self.font_small.render(self.sim.stopped_reason, True, (220, 90, 90))
+            note_rect = note.get_rect()
+            note_rect.midbottom = (W // 2, H - 8)  # 8px margin from bottom
+            # (optional) subtle background for readability
+            bg = note_rect.inflate(12, 6)
+            pygame.draw.rect(self.screen, (20, 20, 20), bg, border_radius=6)
+            self.screen.blit(note, note_rect)
 
     def handle_events(self):
         for event in pygame.event.get():

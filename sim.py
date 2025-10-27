@@ -2,14 +2,14 @@ import pygame
 import random
 import math
 from config import (
-    W, H, PANEL_W, BLINK_PERIOD,
+    W, H, PANEL_W, TICK_PERIOD,
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
     PRICE_PER_CLIENT, INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS,
     IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, VALUE_OF_TIME_PER_MIN,
     DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED, CROWD_YELLOW_PCT, CROWD_RED_PCT,
     REST_GREEN, REST_YELLOW, REST_RED, DEMAND_WAVE_ON, DEMAND_PERIOD_SEC,
-    DEMAND_PEAK, DEMAND_TROUGH, DEMAND_START_PHASE
-
+    DEMAND_PEAK, DEMAND_TROUGH, DEMAND_START_PHASE, MAX_SIM_SECONDS,
+    QUALITY_MEAN, QUALITY_SD, QUALITY_MIN, QUALITY_MAX
 )
 
 class Client:
@@ -19,6 +19,7 @@ class Client:
         self.state = "idle"  # "idle" or "going"
         self.t_hungry = None  # simulation time when agent became hungry
         self.dwell_remaining = 0.0  # seconds; when > 0, client is "dwell"
+        self.quality = None  # set at start of dwell; cleared after dwell ends
         self.return_target = None  # (x, y) point in the pool to walk back to
 
     def step_toward(self, dt, target_xy):
@@ -121,10 +122,12 @@ class Sim:
     def reset(self):
         self.running = False
         self.elapsed = 0.0
-        self._blink_accum = 0.0
+        self._tick_accum = 0.0
         self.visible = True
-        self.blinks = 0
+        self.ticks = 0
         self.square_pos = self.center_square()
+        self.quality_sum = 0.0
+        self.quality_n = 0
 
         # metrics
         self.customers_served = 0
@@ -141,9 +144,18 @@ class Sim:
         # Seed fixed population
         self.seed_clients(INITIAL_CLIENTS)
 
+        # Max run time
+        self.stopped_reason = None
+
+        self.quality_sum = 0.0
+        self.quality_n = 0
+
     def spawn_client(self):
         cy = H // 2 + random.randint(-CLIENT_SPAWN_Y_JITTER, CLIENT_SPAWN_Y_JITTER)
         self.clients.append(Client(CLIENT_SPAWN_X, cy))
+
+    def avg_quality(self):
+        return (self.quality_sum / self.quality_n) if self.quality_n else 0.0
 
     def _random_point_in_circle(self, center, radius):
         # Uniform over disk
@@ -166,12 +178,19 @@ class Sim:
             return
         sdt = dt * SIM_SPEED  # <— scaled simulation time
         self.elapsed += sdt  # (was dt)
-        self._blink_accum += sdt  # (was dt)
 
-        if self._blink_accum >= BLINK_PERIOD:
+        # ---- time cutoff ----
+        if self.elapsed >= MAX_SIM_SECONDS:
+            self.running = False
+            self.stopped_reason = f"Stopped at {int(MAX_SIM_SECONDS / 60)} min limit"
+            return
+
+        self._tick_accum += sdt  # (was dt)
+
+        if self._tick_accum >= TICK_PERIOD:
             # self.visible = not self.visible
-            self._blink_accum = 0.0
-            self.blinks += 1
+            self._tick_accum = 0.0
+            self.ticks += 1
             m = self.demand_multiplier()
             p_eff = max(0.0, min(1.0, HUNGER_PROB * m))  # clamp for safety
             for c in self.clients:
@@ -205,6 +224,10 @@ class Sim:
                     c.dwell_remaining = dwell
                     c.state = "dwell"
 
+                    # sample per-visit food quality ~ Normal(mean, sd), clamped to [QUALITY_MIN, QUALITY_MAX]
+                    q = random.gauss(QUALITY_MEAN, QUALITY_SD)
+                    c.quality = max(QUALITY_MIN, min(QUALITY_MAX, q))
+
         # 2) Process dwell using SCALED time so dwell finishes faster when SIM_SPEED>1
         for c in self.clients:
             if c.state == "dwell":
@@ -216,6 +239,15 @@ class Sim:
                         self.time_spent_sum += delta_min
                         self.time_spent_n += 1
                         c.t_hungry = None
+
+                    # record this visit's quality
+                    if c.quality is not None:
+                        self.quality_sum += c.quality
+                        self.quality_n += 1
+                        c.quality = None
+
+                    c.dwell_remaining = 0.0
+
                     # return to idle pool
                     c.return_target = self._random_point_in_circle(self.idle_center, self.idle_radius)
                     c.state = "returning"
@@ -246,3 +278,7 @@ class Sim:
         t = (self.elapsed + DEMAND_START_PHASE * DEMAND_PERIOD_SEC) % DEMAND_PERIOD_SEC
         phase = t / DEMAND_PERIOD_SEC
         return mid + amp * math.cos(2 * math.pi * phase)
+
+
+    def avg_quality(self):
+        return (self.quality_sum / self.quality_n) if self.quality_n else 0.0
