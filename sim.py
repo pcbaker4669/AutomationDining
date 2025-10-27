@@ -1,6 +1,7 @@
 import pygame
 import random
 import math
+from logger import RunLogger
 from config import (
     W, H, PANEL_W, TICK_PERIOD,
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
@@ -9,7 +10,7 @@ from config import (
     DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED, CROWD_YELLOW_PCT, CROWD_RED_PCT,
     REST_GREEN, REST_YELLOW, REST_RED, DEMAND_WAVE_ON, DEMAND_PERIOD_SEC,
     DEMAND_PEAK, DEMAND_TROUGH, DEMAND_START_PHASE, MAX_SIM_SECONDS,
-    QUALITY_MEAN, QUALITY_SD, QUALITY_MIN, QUALITY_MAX
+    QUALITY_MEAN, QUALITY_SD, QUALITY_MIN, QUALITY_MAX, LOGGING_ON, LOG_DIR
 )
 
 class Client:
@@ -150,6 +151,21 @@ class Sim:
         self.quality_sum = 0.0
         self.quality_n = 0
 
+        # create on first reset
+        if not hasattr(self, "logger") or self.logger is None:
+            self.logger = RunLogger(enabled=LOGGING_ON, log_dir=LOG_DIR)
+
+        # (optional) summarize key params for provenance
+        params = {
+            "mode": getattr(self, "mode", "human"),
+            "SIM_SPEED": SIM_SPEED,
+            "TICK_PERIOD": getattr(self, "TICK_PERIOD", None),
+            "HUNGER_PROB": HUNGER_PROB,
+            "DWELL_MEAN_SEC": DWELL_MEAN_SEC,
+            "QUALITY_MEAN": QUALITY_MEAN,
+        }
+        self.logger.start_run(params)
+
     def spawn_client(self):
         cy = H // 2 + random.randint(-CLIENT_SPAWN_Y_JITTER, CLIENT_SPAWN_Y_JITTER)
         self.clients.append(Client(CLIENT_SPAWN_X, cy))
@@ -183,6 +199,9 @@ class Sim:
         if self.elapsed >= MAX_SIM_SECONDS:
             self.running = False
             self.stopped_reason = f"Stopped at {int(MAX_SIM_SECONDS / 60)} min limit"
+            if hasattr(self, "logger") and self.logger:
+                self.logger.log_event(sim_time_s=self.elapsed, event_type="run_stop",
+                                      severity="info", duration_s=0.0, note=self.stopped_reason)
             return
 
         self._tick_accum += sdt  # (was dt)
@@ -223,6 +242,7 @@ class Sim:
                     dwell = max(2.0, random.gauss(DWELL_MEAN_SEC, DWELL_SD_SEC))
                     c.dwell_remaining = dwell
                     c.state = "dwell"
+                    c.last_dwell_sample = dwell  # <-- add this one line
 
                     # sample per-visit food quality ~ Normal(mean, sd), clamped to [QUALITY_MIN, QUALITY_MAX]
                     q = random.gauss(QUALITY_MEAN, QUALITY_SD)
@@ -233,12 +253,37 @@ class Sim:
             if c.state == "dwell":
                 c.dwell_remaining -= dt_time
                 if c.dwell_remaining <= 0.0:
-                    # finalize time cost (uses self.elapsed, already scaled)
+                    # 1) finalize time-spent in sim seconds/minutes
+                    time_spent_s = 0.0
                     if c.t_hungry is not None:
-                        delta_min = max(0.0, (self.elapsed - c.t_hungry) / 60.0)
-                        self.time_spent_sum += delta_min
+                        time_spent_s = max(0.0, self.elapsed - c.t_hungry)
+                        self.time_spent_sum += (time_spent_s / 60.0)
                         self.time_spent_n += 1
                         c.t_hungry = None
+
+                    # 2) ---- LOG THE MEAL HERE ----
+                    dwell_s = max(0.0, getattr(c, "last_dwell_sample", 0.0))
+                    wait_s = max(0.0, time_spent_s - dwell_s)
+                    price = PRICE_PER_CLIENT
+                    time_cost = VALUE_OF_TIME_PER_MIN * (time_spent_s / 60.0)
+                    gp = price + time_cost
+
+                    if hasattr(self, "logger") and self.logger:
+                        self.logger.log_meal({
+                            "sim_time_s": self.elapsed,
+                            "sim_minutes": self.elapsed / 60.0,
+                            "customer_id": id(c),
+                            "time_spent_s": time_spent_s,
+                            "time_spent_min": time_spent_s / 60.0,
+                            "dwell_s": dwell_s,
+                            "wait_s": wait_s,
+                            "price": price,
+                            "time_cost": time_cost,
+                            "gp": gp,
+                            "quality": (c.quality if c.quality is not None else ""),
+                            "mode": getattr(self, "mode", "human"),
+                        })
+                    # ------------- END LOG -------------
 
                     # record this visit's quality
                     if c.quality is not None:

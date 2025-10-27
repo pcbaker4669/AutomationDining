@@ -80,3 +80,7 @@ QUALITY_MEAN = 0.70   # average quality
 QUALITY_SD   = 0.12   # visit-to-visit variation
 QUALITY_MIN  = 0.10   # hard floor
 QUALITY_MAX  = 1.00   # hard ceiling
+
+# ---- Logging ----
+LOGGING_ON = True
+LOG_DIR = "logs"
