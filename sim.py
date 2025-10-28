@@ -10,8 +10,11 @@ from config import (
     DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED, CROWD_YELLOW_PCT, CROWD_RED_PCT,
     REST_GREEN, REST_YELLOW, REST_RED, DEMAND_WAVE_ON, DEMAND_PERIOD_SEC,
     DEMAND_PEAK, DEMAND_TROUGH, DEMAND_START_PHASE, MAX_SIM_SECONDS,
-    QUALITY_MEAN, QUALITY_SD, QUALITY_MIN, QUALITY_MAX, LOGGING_ON, LOG_DIR
+    QUALITY_MEAN, QUALITY_SD, QUALITY_MIN, QUALITY_MAX, LOGGING_ON, LOG_DIR,
+    EMP_WAGE_PER_HOUR, CROWD_DWELL_ALPHA, SEED
 )
+if SEED is not None:
+    random.seed(SEED)
 
 class Client:
     def __init__(self, x, y, cid):
@@ -124,6 +127,7 @@ class Sim:
             self.clients.append(c)
 
     def reset(self):
+        random.seed(SEED)
         self.running = False
         self.elapsed = 0.0
         self._tick_accum = 0.0
@@ -155,6 +159,8 @@ class Sim:
         self.quality_sum = 0.0
         self.quality_n = 0
 
+        self.labor_cost = 0.0
+
         # create on first reset
         if not hasattr(self, "logger") or self.logger is None:
             self.logger = RunLogger(enabled=LOGGING_ON, log_dir=LOG_DIR)
@@ -167,6 +173,7 @@ class Sim:
             "HUNGER_PROB": HUNGER_PROB,
             "DWELL_MEAN_SEC": DWELL_MEAN_SEC,
             "QUALITY_MEAN": QUALITY_MEAN,
+            "SEED": SEED,
         }
         self.logger.start_run(params)
 
@@ -198,6 +205,7 @@ class Sim:
             return
         sdt = dt * SIM_SPEED  # <— scaled simulation time
         self.elapsed += sdt  # (was dt)
+        self.labor_cost += (EMP_WAGE_PER_HOUR / 3600.0) * sdt
 
         # ---- time cutoff ----
         if self.elapsed >= MAX_SIM_SECONDS:
@@ -244,6 +252,15 @@ class Sim:
                     served_now += 1
                     # start dwell in seconds (already scaled in dt_time later)
                     dwell = max(2.0, random.gauss(DWELL_MEAN_SEC, DWELL_SD_SEC))
+
+                    # crowd-adjust dwell: scale by how close we are to "red" crowding
+                    load = self.diners_in_restaurant()  # current diners in square
+                    yellow, red = self._crowd_thresholds()  # your % of population thresholds
+                    ref = max(1, red)  # use red as the “full crowd” reference
+                    util = min(1.0, load / float(ref))  # 0.0 .. 1.0
+
+                    dwell *= (1.0 + CROWD_DWELL_ALPHA * util)  # up to +alpha at red-level load
+
                     c.dwell_remaining = dwell
                     c.state = "dwell"
                     c.last_dwell_sample = dwell  # <-- add this one line

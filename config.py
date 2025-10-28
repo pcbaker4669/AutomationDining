@@ -6,6 +6,9 @@ PANEL_W = 260 # left components panel width
 TICK_PERIOD = 0.5 # seconds per toggle when running
 FPS = 60
 
+# ---- Reproducibility ----
+SEED = 12345   # set to an int for deterministic runs; set to None for random
+
 # Colors (RGB)
 BG = (22, 26, 30)
 PANEL_BG = (28, 34, 40)
@@ -84,3 +87,9 @@ QUALITY_MAX  = 1.00   # hard ceiling
 # ---- Logging ----
 LOGGING_ON = True
 LOG_DIR = "logs"
+
+# --- Labor economics (human mode) ---
+EMP_WAGE_PER_HOUR = 18.0
+
+# Crowding → dwell stretch (max extra fraction at RED crowd)
+CROWD_DWELL_ALPHA = 0.50   # e.g., up to +50% dwell at red-level load

@@ -74,7 +74,7 @@ class App:
 
         # ATS - Average Time Spent, ATC - Average Time Cost, AGP - Average Global Price (Price+Time)
         t_time = self.font_small.render(f"ATS: {avg_min:.2f} min", True, WHITE)
-        t_cost = self.font_small.render(f"ATC: ${avg_tc:.2f}", True, WHITE)
+
         t_gp = self.font_small.render(f"AGP: ${avg_gp:.2f}", True, WHITE)
 
         # AQS - Average Quality Score
@@ -84,7 +84,6 @@ class App:
 
         # place these a bit lower than your existing metrics; adjust Y offsets if needed
         self.screen.blit(t_time, (PANEL_W + 20, 88))
-        self.screen.blit(t_cost, (PANEL_W + 160, 88))
         self.screen.blit(t_gp, (PANEL_W + 300, 88))
 
         speed_lbl = self.font_small.render("Speed: x{:.1f}".format(SIM_SPEED), True, WHITE)
@@ -92,7 +91,13 @@ class App:
 
         m = self.sim.demand_multiplier()
         t_wave = self.font_small.render(f"Demand x{m:.2f}", True, WHITE)
-        self.screen.blit(t_wave, (PANEL_W + 420, 68))
+        self.screen.blit(t_wave, (PANEL_W + 160, 88))
+
+        profit = self.sim.money_collected - self.sim.labor_cost
+        t_labor = self.font_small.render(f"Labor: ${self.sim.labor_cost:,.2f}", True, WHITE)
+        t_profit = self.font_small.render(f"Profit: ${profit:,.2f}", True, WHITE)
+        self.screen.blit(t_labor, (PANEL_W + 420, 68))
+        self.screen.blit(t_profit, (PANEL_W + 420, 108))  # pick a spot you like
 
         # --- crowd thresholds hint under the restaurant ---
         y, r = self.sim._crowd_thresholds()
