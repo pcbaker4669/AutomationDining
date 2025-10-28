@@ -1,3 +1,0 @@
-run_id,row_type,sim_time_s,sim_minutes,event_type,severity,duration_s,note
-run_20251027_173742,event,0.0,0.0,run_start,info,0.0,"{'mode': 'human', 'SIM_SPEED': 20.0, 'TICK_PERIOD': None, 'HUNGER_PROB': 0.001, 'DWELL_MEAN_SEC': 300, 'QUALITY_MEAN': 0.7}"
-run_20251027_173742,event,1200.2600000000095,20.00433333333349,run_stop,info,0.0,Stopped at 20 min limit

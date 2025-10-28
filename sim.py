@@ -14,7 +14,7 @@ from config import (
 )
 
 class Client:
-    def __init__(self, x, y):
+    def __init__(self, x, y, cid):
         self.rect = pygame.Rect(0, 0, CLIENT_SIZE, CLIENT_SIZE)
         self.rect.center = (x, y)
         self.state = "idle"  # "idle" or "going"
@@ -22,6 +22,7 @@ class Client:
         self.dwell_remaining = 0.0  # seconds; when > 0, client is "dwell"
         self.quality = None  # set at start of dwell; cleared after dwell ends
         self.return_target = None  # (x, y) point in the pool to walk back to
+        self.cid = cid
 
     def step_toward(self, dt, target_xy):
         # (leave your existing movement code as-is)
@@ -50,6 +51,7 @@ class Sim:
     def __init__(self):
         self.square_size = 80
         self.reset()
+
 
     def center_square(self):
         # Base center of the simulation panel (to the right of the components panel)
@@ -116,7 +118,8 @@ class Sim:
         self.clients = []
         for _ in range(n):
             x, y = self._random_point_in_circle(self.idle_center, self.idle_radius)
-            c = Client(x, y)
+            c = Client(x, y, self.cid_seq)
+            self.cid_seq += 1
             c.state = "idle"
             self.clients.append(c)
 
@@ -129,6 +132,7 @@ class Sim:
         self.square_pos = self.center_square()
         self.quality_sum = 0.0
         self.quality_n = 0
+        self.cid_seq = 1
 
         # metrics
         self.customers_served = 0
@@ -272,7 +276,7 @@ class Sim:
                         self.logger.log_meal({
                             "sim_time_s": self.elapsed,
                             "sim_minutes": self.elapsed / 60.0,
-                            "customer_id": id(c),
+                            "customer_id": c.cid,
                             "time_spent_s": time_spent_s,
                             "time_spent_min": time_spent_s / 60.0,
                             "dwell_s": dwell_s,
