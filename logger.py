@@ -9,13 +9,15 @@ class RunLogger:
     """
 
     CORE_MEAL_FIELDS = [
-        "run_id", "row_type",          # row_type = 'meal'
+        "run_id", "row_type",  # 'meal'
         "sim_time_s", "sim_minutes",
         "customer_id",
-        "time_spent_s", "time_spent_min",
-        "dwell_s", "wait_s",           # wait_s = time_spent_s - dwell_s (approx.)
-        "price", "time_cost", "gp",
-        "quality", "mode"              # mode: 'human' | 'automation'
+        "wait_time_min",  # ← keep minutes only
+        "price", "quality", "mode",
+        "demand",  # wave multiplier at log time
+        "n_servers",  # capacity at the time
+        "money_cum",  # cumulative money collected
+        "labor_cum"  # cumulative labor cost
     ]
 
     CORE_EVENT_FIELDS = [

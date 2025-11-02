@@ -6,13 +6,14 @@ from config import (
     W, H, PANEL_W, TICK_PERIOD,
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
     PRICE_PER_CLIENT, INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS,
-    IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, VALUE_OF_TIME_PER_MIN,
+    IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR,
     DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED, CROWD_YELLOW_PCT, CROWD_RED_PCT,
     REST_GREEN, REST_YELLOW, REST_RED, DEMAND_WAVE_ON, DEMAND_PERIOD_SEC,
     DEMAND_PEAK, DEMAND_TROUGH, DEMAND_START_PHASE, MAX_SIM_SECONDS,
     QUALITY_MEAN, QUALITY_SD, QUALITY_MIN, QUALITY_MAX, LOGGING_ON, LOG_DIR,
-    EMP_WAGE_PER_HOUR, CROWD_DWELL_ALPHA, SEED
+    EMP_WAGE_PER_HOUR, CROWD_DWELL_ALPHA, SEED, N_SERVERS
 )
+
 if SEED is not None:
     random.seed(SEED)
 
@@ -26,6 +27,8 @@ class Client:
         self.quality = None  # set at start of dwell; cleared after dwell ends
         self.return_target = None  # (x, y) point in the pool to walk back to
         self.cid = cid
+        self.queue_start = None  # sim time when they reached the restaurant
+        self.service_end = None  # sim time when their order completes
 
     def step_toward(self, dt, target_xy):
         # (leave your existing movement code as-is)
@@ -86,11 +89,11 @@ class Sim:
         return (center_x, cy)
 
     def diners_in_restaurant(self) -> int:
-        # diners are those currently in dwell state (i.e., inside the square)
-        return sum(1 for c in self.clients if getattr(c, "state", None) == "dwell")
+        # include both waiting (queue) and being served (in_service)
+        return len(self.queue) + len(self.in_service)
 
     def restaurant_color(self):
-        load = self.diners_in_restaurant()
+        load = self.diners_in_restaurant()  # now queue + service
         yellow, red = self._crowd_thresholds()
         if load >= red:
             return REST_RED
@@ -108,14 +111,6 @@ class Sim:
         if self.time_spent_n == 0:
             return 0.0
         return self.time_spent_sum / self.time_spent_n
-
-    def avg_time_cost_dollars(self):
-        return self.avg_time_spent_min() * VALUE_OF_TIME_PER_MIN
-
-    def avg_gp_dollars(self):
-        # generalized price = money price + time cost
-        # (uses your global PRICE_PER_CLIENT)
-        return PRICE_PER_CLIENT + self.avg_time_cost_dollars()
 
     def seed_clients(self, n):
         self.clients = []
@@ -161,6 +156,10 @@ class Sim:
 
         self.labor_cost = 0.0
 
+        self.queue = []  # FIFO of clients waiting to be served
+        self.in_service = set()  # client IDs currently being served
+        self.n_servers = N_SERVERS  # capacity
+
         # create on first reset
         if not hasattr(self, "logger") or self.logger is None:
             self.logger = RunLogger(enabled=LOGGING_ON, log_dir=LOG_DIR)
@@ -174,6 +173,8 @@ class Sim:
             "DWELL_MEAN_SEC": DWELL_MEAN_SEC,
             "QUALITY_MEAN": QUALITY_MEAN,
             "SEED": SEED,
+            "N_SERVERS": getattr(self, "n_servers", None),
+            "LABOR_COST_POLICY": "per_server_fixed"
         }
         self.logger.start_run(params)
 
@@ -205,7 +206,8 @@ class Sim:
             return
         sdt = dt * SIM_SPEED  # <— scaled simulation time
         self.elapsed += sdt  # (was dt)
-        self.labor_cost += (EMP_WAGE_PER_HOUR / 3600.0) * sdt
+        # ---- Fixed labor: pay per server (no utilization) ----
+        self.labor_cost += (EMP_WAGE_PER_HOUR / 3600.0) * self.n_servers * sdt
 
         # ---- time cutoff ----
         if self.elapsed >= MAX_SIM_SECONDS:
@@ -217,6 +219,23 @@ class Sim:
             return
 
         self._tick_accum += sdt  # (was dt)
+
+        # --- dispatcher: start service while capacity available ---
+        yellow, red = self._crowd_thresholds()
+        util = min(1.0, len(self.in_service) / float(self.n_servers))
+
+        while len(self.in_service) < self.n_servers and self.queue:
+            qc = self.queue.pop(0)
+            if getattr(qc, 'state', None) != 'queue':
+                continue
+
+            base = max(2.0, random.gauss(DWELL_MEAN_SEC, DWELL_SD_SEC))
+            dwell_s = base * (1.0 + CROWD_DWELL_ALPHA * util)
+            qc.service_end = self.elapsed + dwell_s
+            qc.dwell_remaining = dwell_s
+            qc.last_dwell_sample = dwell_s  # <-- so we can log it later
+            qc.state = 'dwell'
+            self.in_service.add(qc.cid)
 
         if self._tick_accum >= TICK_PERIOD:
             # self.visible = not self.visible
@@ -249,23 +268,12 @@ class Sim:
             if c.state == "going":
                 c.step_toward(dt_move, target)
                 if self.square_pos.colliderect(c.rect):
-                    served_now += 1
-                    # start dwell in seconds (already scaled in dt_time later)
-                    dwell = max(2.0, random.gauss(DWELL_MEAN_SEC, DWELL_SD_SEC))
+                    # ARRIVAL → join queue; we’ll start service later if a server is free
+                    c.state = "queue"
+                    c.queue_start = self.elapsed
+                    self.queue.append(c)
 
-                    # crowd-adjust dwell: scale by how close we are to "red" crowding
-                    load = self.diners_in_restaurant()  # current diners in square
-                    yellow, red = self._crowd_thresholds()  # your % of population thresholds
-                    ref = max(1, red)  # use red as the “full crowd” reference
-                    util = min(1.0, load / float(ref))  # 0.0 .. 1.0
-
-                    dwell *= (1.0 + CROWD_DWELL_ALPHA * util)  # up to +alpha at red-level load
-
-                    c.dwell_remaining = dwell
-                    c.state = "dwell"
-                    c.last_dwell_sample = dwell  # <-- add this one line
-
-                    # sample per-visit food quality ~ Normal(mean, sd), clamped to [QUALITY_MIN, QUALITY_MAX]
+                    # sample per-visit food quality now (or you can defer to service start)
                     q = random.gauss(QUALITY_MEAN, QUALITY_SD)
                     c.quality = max(QUALITY_MIN, min(QUALITY_MAX, q))
 
@@ -273,50 +281,49 @@ class Sim:
         for c in self.clients:
             if c.state == "dwell":
                 c.dwell_remaining -= dt_time
-                if c.dwell_remaining <= 0.0:
-                    # 1) finalize time-spent in sim seconds/minutes
-                    time_spent_s = 0.0
-                    if c.t_hungry is not None:
-                        time_spent_s = max(0.0, self.elapsed - c.t_hungry)
-                        self.time_spent_sum += (time_spent_s / 60.0)
-                        self.time_spent_n += 1
-                        c.t_hungry = None
+                if c.dwell_remaining > 0.0:
+                    continue  # still being served
+                    # COMBINED WAIT TIME = arrival → food
+                wait_time_s = max(0.0, self.elapsed - (c.queue_start or self.elapsed))
 
-                    # 2) ---- LOG THE MEAL HERE ----
-                    dwell_s = max(0.0, getattr(c, "last_dwell_sample", 0.0))
-                    wait_s = max(0.0, time_spent_s - dwell_s)
-                    price = PRICE_PER_CLIENT
-                    time_cost = VALUE_OF_TIME_PER_MIN * (time_spent_s / 60.0)
-                    gp = price + time_cost
+                self.customers_served += 1
+                self.money_collected += PRICE_PER_CLIENT
+                self.time_spent_sum += wait_time_s / 60.0
+                self.time_spent_n += 1
 
-                    if hasattr(self, "logger") and self.logger:
-                        self.logger.log_meal({
-                            "sim_time_s": self.elapsed,
-                            "sim_minutes": self.elapsed / 60.0,
-                            "customer_id": c.cid,
-                            "time_spent_s": time_spent_s,
-                            "time_spent_min": time_spent_s / 60.0,
-                            "dwell_s": dwell_s,
-                            "wait_s": wait_s,
-                            "price": price,
-                            "time_cost": time_cost,
-                            "gp": gp,
-                            "quality": (c.quality if c.quality is not None else ""),
-                            "mode": getattr(self, "mode", "human"),
-                        })
-                    # ------------- END LOG -------------
+                # Log ONLY wait time (rename schema in logger.py to wait_time_* when you’re ready)
+                if self.logger:
 
-                    # record this visit's quality
-                    if c.quality is not None:
-                        self.quality_sum += c.quality
-                        self.quality_n += 1
-                        c.quality = None
+                    self.logger.log_meal({
+                        "sim_time_s": self.elapsed,
+                        "sim_minutes": self.elapsed / 60.0,
+                        "customer_id": c.cid,
 
-                    c.dwell_remaining = 0.0
+                        # minutes only
+                        "wait_time_min": wait_time_s / 60.0,
 
-                    # return to idle pool
-                    c.return_target = self._random_point_in_circle(self.idle_center, self.idle_radius)
-                    c.state = "returning"
+                        "price": PRICE_PER_CLIENT,
+                        "quality": (c.quality if c.quality is not None else ""),
+                        "mode": getattr(self, "mode", "human"),
+                        "demand": getattr(self, "demand_current", self.demand_multiplier()),
+                        # capacity + cumulative tallies
+                        "n_servers": getattr(self, "n_servers", None),
+                        "money_cum": self.money_collected,  # ← running total after this serve
+                        "labor_cum": self.labor_cost  # ← running total at this moment
+                    })
+
+                # cleanup & recycle
+                if c.cid in self.in_service:
+                    self.in_service.remove(c.cid)
+                if c.quality is not None:
+                    self.quality_sum += c.quality
+                    self.quality_n += 1
+                    c.quality = None
+                c.queue_start = None
+                c.service_end = None
+                c.dwell_remaining = 0.0
+                c.state = "returning"
+                c.return_target = self._random_point_in_circle(self.idle_center, self.idle_radius)
 
         # 3. after handling "going"
         for c in self.clients:
@@ -327,10 +334,7 @@ class Sim:
                     c.state = "idle"
                     c.return_target = None
 
-        # money/served increments — keep wherever you increment them now (arrival or dwell-finish)
-        if served_now:
-            self.customers_served += served_now
-            self.money_collected += PRICE_PER_CLIENT * served_now
+
 
     def demand_multiplier(self):
         """Piecewise cosine between DEMAND_TROUGH and DEMAND_PEAK over DEMAND_PERIOD_SEC."""

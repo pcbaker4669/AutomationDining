@@ -69,13 +69,9 @@ class App:
 
         # Time cost HUD (opportunity cost)
         avg_min = self.sim.avg_time_spent_min()
-        avg_tc = self.sim.avg_time_cost_dollars()
-        avg_gp = self.sim.avg_gp_dollars()
 
         # ATS - Average Time Spent, ATC - Average Time Cost, AGP - Average Global Price (Price+Time)
         t_time = self.font_small.render(f"ATS: {avg_min:.2f} min", True, WHITE)
-
-        t_gp = self.font_small.render(f"AGP: ${avg_gp:.2f}", True, WHITE)
 
         # AQS - Average Quality Score
         avg_q = self.sim.avg_quality()
@@ -84,7 +80,7 @@ class App:
 
         # place these a bit lower than your existing metrics; adjust Y offsets if needed
         self.screen.blit(t_time, (PANEL_W + 20, 88))
-        self.screen.blit(t_gp, (PANEL_W + 300, 88))
+
 
         speed_lbl = self.font_small.render("Speed: x{:.1f}".format(SIM_SPEED), True, WHITE)
         self.screen.blit(speed_lbl, (PANEL_W + 420, 48))
@@ -137,9 +133,7 @@ class App:
 
         if self.sim.visible:
             pygame.draw.rect(self.screen, color, rect, border_radius=8)
-        else:
-            # if you still use blinking, show outline when "invisible"
-            pygame.draw.rect(self.screen, GREY, rect, width=2, border_radius=8)
+
 
         # number overlay, centered on the square
         num_surf = self.font.render(str(load), True, WHITE)

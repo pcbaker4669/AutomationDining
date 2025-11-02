@@ -1,0 +1,3 @@
+run_id,row_type,sim_time_s,sim_minutes,event_type,severity,duration_s,note
+run_20251102_143516,event,0.0,0.0,run_start,info,0.0,"{'mode': 'human', 'SIM_SPEED': 20.0, 'TICK_PERIOD': None, 'HUNGER_PROB': 0.001, 'DWELL_MEAN_SEC': 240, 'QUALITY_MEAN': 0.7, 'SEED': 12345, 'N_SERVERS': 4, 'LABOR_COST_POLICY': 'per_server_fixed'}"
+run_20251102_143516,event,1200.0800000000092,20.001333333333488,run_stop,info,0.0,Stopped at 20 min limit

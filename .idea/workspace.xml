@@ -7,8 +7,9 @@
     <list default="true" id="13b99d7c-1c48-43fd-925d-eeecab9e8f91" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/run_20251028_152150_events.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/run_20251028_152150_meals.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logger.py" beforeDir="false" afterPath="$PROJECT_DIR$/logger.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/run_20251028_163349_events.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/run_20251028_163349_meals.csv" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/sim.py" beforeDir="false" afterPath="$PROJECT_DIR$/sim.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui.py" afterDir="false" />
     </list>
@@ -41,9 +42,15 @@
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;october__mods&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/peter/OneDrive/Documents/GMU/Dissertation/code/7_CultureEconFoodAutomation/AutomationDining/logs&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
 }</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\peter\OneDrive\Documents\GMU\Dissertation\code\7_CultureEconFoodAutomation\AutomationDining\logs" />
+    </key>
+  </component>
   <component name="RunManager">
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="AutomationDining" />

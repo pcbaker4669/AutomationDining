@@ -44,11 +44,9 @@ SCENE_SHIFT_X = 0.25
 
 IDLE_GAP = 100  # extra horizontal space between the restaurant and the circle
 
-# Opportunity cost (dollars per minute) for the consumers
-VALUE_OF_TIME_PER_MIN = 0.25  # = $15/hour
-
-# Eating (dwell) time after arrival (seconds)
-DWELL_MEAN_SEC = 300    # average time
+# Service time after arrival (seconds)
+# (How long food preparation/service takes once you're being served)
+DWELL_MEAN_SEC = 240    # average time
 DWELL_SD_SEC   = 120     # +/- variation (clamped >= 5s)
 
 # Simulation speed (1.0 = real time). Increase to make the sim run faster than wall-clock.
@@ -93,3 +91,7 @@ EMP_WAGE_PER_HOUR = 18.0
 
 # Crowding → dwell stretch (max extra fraction at RED crowd)
 CROWD_DWELL_ALPHA = 0.50   # e.g., up to +50% dwell at red-level load
+
+# --- Service capacity ---
+N_SERVERS = 4  # number of orders that can be processed at once
+
