@@ -1,1 +1,0 @@
-run_id,row_type,sim_time_s,sim_minutes,customer_id,wait_time_s,wait_time_min,price,quality,mode,n_servers

@@ -6,12 +6,13 @@ from config import (
     W, H, PANEL_W, TICK_PERIOD,
     CLIENT_SIZE, CLIENT_SPEED, CLIENT_SPAWN_X, CLIENT_SPAWN_Y_JITTER,
     PRICE_PER_CLIENT, INITIAL_CLIENTS, HUNGER_PROB, CIRCLE_RADIUS,
-    IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR,
-    DWELL_MEAN_SEC, DWELL_SD_SEC, SIM_SPEED, CROWD_YELLOW_PCT, CROWD_RED_PCT,
+    IDLE_GAP, HUNGRY_COLOR, IDLE_COLOR, DWELL_MEAN_SEC_R, DWELL_SD_SEC_R,
+    DWELL_MEAN_SEC_H, DWELL_SD_SEC_H, SIM_SPEED, CROWD_YELLOW_N, CROWD_RED_N,
     REST_GREEN, REST_YELLOW, REST_RED, DEMAND_WAVE_ON, DEMAND_PERIOD_SEC,
     DEMAND_PEAK, DEMAND_TROUGH, DEMAND_START_PHASE, MAX_SIM_SECONDS,
     QUALITY_MEAN, QUALITY_SD, QUALITY_MIN, QUALITY_MAX, LOGGING_ON, LOG_DIR,
-    EMP_WAGE_PER_HOUR, CROWD_DWELL_ALPHA, SEED, N_SERVERS
+    WAGE_PER_HOUR_H, WAGE_PER_HOUR_R, CROWD_DWELL_ALPHA, SEED, N_SERVERS_H, N_SERVERS_R, MODE,
+    LEASE_PER_HOUR_R, MAINT_PER_HOUR_R
 )
 
 if SEED is not None:
@@ -56,6 +57,16 @@ class Sim:
     """Minimal simulation state: run/stop/reset + blinking square."""
     def __init__(self):
         self.square_size = 80
+        self.mode = MODE  # remember the chosen kitchen
+        self.fixed_cost = 0.0
+        if self.mode == "human":
+            self.n_servers = N_SERVERS_H
+            self.dwell_mean = DWELL_MEAN_SEC_H
+            self.dwell_sd = DWELL_SD_SEC_H
+        else:
+            self.n_servers = N_SERVERS_R
+            self.dwell_mean = DWELL_MEAN_SEC_R
+            self.dwell_sd = DWELL_SD_SEC_R
         self.reset()
 
 
@@ -103,8 +114,8 @@ class Sim:
 
     def _crowd_thresholds(self):
         n = max(1, len(self.clients))  # current population (agents recycle, so usually constant)
-        yellow = max(1, int(round(CROWD_YELLOW_PCT * n)))
-        red = max(yellow + 1, int(round(CROWD_RED_PCT * n)))  # ensure red > yellow
+        yellow = max(1, int(CROWD_YELLOW_N))
+        red = max(yellow + 1, int(CROWD_RED_N))  # ensure red > yellow
         return yellow, red
 
     def avg_time_spent_min(self):
@@ -155,10 +166,11 @@ class Sim:
         self.quality_n = 0
 
         self.labor_cost = 0.0
+        self.fixed_cost = 0.0
 
         self.queue = []  # FIFO of clients waiting to be served
         self.in_service = set()  # client IDs currently being served
-        self.n_servers = N_SERVERS  # capacity
+
 
         # create on first reset
         if not hasattr(self, "logger") or self.logger is None:
@@ -166,15 +178,19 @@ class Sim:
 
         # (optional) summarize key params for provenance
         params = {
-            "mode": getattr(self, "mode", "human"),
+            "MODE": self.mode,
             "SIM_SPEED": SIM_SPEED,
-            "TICK_PERIOD": getattr(self, "TICK_PERIOD", None),
+            "TICK_PERIOD": TICK_PERIOD,
             "HUNGER_PROB": HUNGER_PROB,
-            "DWELL_MEAN_SEC": DWELL_MEAN_SEC,
+            "DWELL_MEAN_SEC": self.dwell_mean,  # ← use instance values
+            "DWELL_SD_SEC": self.dwell_sd,
             "QUALITY_MEAN": QUALITY_MEAN,
             "SEED": SEED,
-            "N_SERVERS": getattr(self, "n_servers", None),
-            "LABOR_COST_POLICY": "per_server_fixed"
+            "N_SERVERS": self.n_servers,
+            "LABOR_COST_POLICY": "per_server_fixed",
+            "WAGE_PER_HOUR": (WAGE_PER_HOUR_R if self.mode == "robot" else WAGE_PER_HOUR_H),
+            "LEASE_PER_HOUR": (LEASE_PER_HOUR_R if self.mode == "robot" else 0.0),
+            "MAINT_PER_HOUR": (MAINT_PER_HOUR_R if self.mode == "robot" else 0.0),
         }
         self.logger.start_run(params)
 
@@ -207,7 +223,11 @@ class Sim:
         sdt = dt * SIM_SPEED  # <— scaled simulation time
         self.elapsed += sdt  # (was dt)
         # ---- Fixed labor: pay per server (no utilization) ----
-        self.labor_cost += (EMP_WAGE_PER_HOUR / 3600.0) * self.n_servers * sdt
+        if MODE == "human":
+            self.labor_cost += (WAGE_PER_HOUR_H / 3600) * self.n_servers * sdt
+        else:
+            self.labor_cost += (WAGE_PER_HOUR_R / 3600) * self.n_servers * sdt
+            self.fixed_cost += ((LEASE_PER_HOUR_R + MAINT_PER_HOUR_R) / 3600) * sdt
 
         # ---- time cutoff ----
         if self.elapsed >= MAX_SIM_SECONDS:
@@ -229,7 +249,7 @@ class Sim:
             if getattr(qc, 'state', None) != 'queue':
                 continue
 
-            base = max(2.0, random.gauss(DWELL_MEAN_SEC, DWELL_SD_SEC))
+            base = max(2.0, random.gauss(self.dwell_mean, self.dwell_sd))
             dwell_s = base * (1.0 + CROWD_DWELL_ALPHA * util)
             qc.service_end = self.elapsed + dwell_s
             qc.dwell_remaining = dwell_s
@@ -242,6 +262,7 @@ class Sim:
             self._tick_accum = 0.0
             self.ticks += 1
             m = self.demand_multiplier()
+            self.demand_current = m  # ← cache for logging & arrivals this tick
             p_eff = max(0.0, min(1.0, HUNGER_PROB * m))  # clamp for safety
             for c in self.clients:
                 if c.state == "idle" and random.random() < p_eff:
@@ -309,7 +330,9 @@ class Sim:
                         # capacity + cumulative tallies
                         "n_servers": getattr(self, "n_servers", None),
                         "money_cum": self.money_collected,  # ← running total after this serve
-                        "labor_cum": self.labor_cost  # ← running total at this moment
+                        "labor_cum": self.labor_cost,  # ← running total at this moment
+                        "fixed_cum": self.fixed_cost,
+                        "profit": self.money_collected - self.labor_cost - self.fixed_cost,
                     })
 
                 # cleanup & recycle

@@ -17,7 +17,9 @@ class RunLogger:
         "demand",  # wave multiplier at log time
         "n_servers",  # capacity at the time
         "money_cum",  # cumulative money collected
-        "labor_cum"  # cumulative labor cost
+        "labor_cum",  # cumulative labor cost
+        "fixed_cum",
+        "profit"
     ]
 
     CORE_EVENT_FIELDS = [
